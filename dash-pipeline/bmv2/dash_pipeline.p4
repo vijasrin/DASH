@@ -86,11 +86,13 @@ control dash_ingress(inout headers_t hdr,
     action set_eni_attrs(bit<32> cps,
                          bit<32> pps,
                          bit<32> flows,
+                         bit<16> tunnel_id,
                          bit<1> admin_state) {
         meta.eni_data.cps         = cps;
         meta.eni_data.pps         = pps;
         meta.eni_data.flows       = flows;
         meta.eni_data.admin_state = admin_state;
+        meta.tunnel_id            = tunnel_id;
     }
 
     @name("eni|dash")
@@ -229,10 +231,39 @@ control dash_ingress(inout headers_t hdr,
 }
 
 control dash_egress(inout headers_t hdr,
-                 inout metadata_t meta,
-                 inout standard_metadata_t standard_metadata)
+                    inout metadata_t meta,
+                    inout standard_metadata_t standard_metadata)
 {
-    apply { }
+    action set_tunnel_attributes(IPv4Address underlay_dip,
+    				 EthernetAddress underlay_dmac,
+                                 bit<24> vni) {
+        meta.encap_data.underlay_dmac = underlay_dmac;
+        meta.encap_data.underlay_dip = underlay_dip;
+        meta.encap_data.vni = vni;
+    }
+
+    @name("tunnel|dash")
+    table tunnel {
+        key = {
+            meta.tunnel_id: exact @name("meta.tunnel_id:tunnel_id");
+        }
+
+        actions = {
+            set_tunnel_attributes;
+        }
+    }
+
+    apply {
+        tunnel.apply();
+
+        vxlan_encap(hdr,
+                    meta.encap_data.underlay_dmac,
+                    meta.encap_data.underlay_smac,
+                    meta.encap_data.underlay_dip,
+                    meta.encap_data.underlay_sip,
+                    meta.encap_data.overlay_dmac,
+                    meta.encap_data.vni);
+    }
 }
 
 V1Switch(dash_parser(),
