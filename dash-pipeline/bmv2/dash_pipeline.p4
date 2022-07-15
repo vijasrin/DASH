@@ -88,13 +88,16 @@ control dash_ingress(inout headers_t hdr,
                          bit<32> flows,
                          bit<1> admin_state,
                          IPv4Address vm_underlay_dip,
-                         bit<24> vm_vni) {
+                         bit<24> vm_vni,
+                         bit<16> vnet_id) {
         meta.eni_data.cps            = cps;
         meta.eni_data.pps            = pps;
         meta.eni_data.flows          = flows;
         meta.eni_data.admin_state    = admin_state;
         meta.encap_data.underlay_dip = vm_underlay_dip;
+        /* vm_vni used in the inbound direction */
         meta.encap_data.vni          = vm_vni;
+        meta.vnet_id                 = vnet_id;
     }
 
     @name("eni|dash")
