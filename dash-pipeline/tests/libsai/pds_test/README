@@ -1,0 +1,10 @@
+## Steps to test PDS libsai
+cd dash-pipeline/
+1) make sai-headers
+2) copy nic/third-party/google/x86_64/lib/libprotobuf.so.14 SAI/lib/
+3) copy nic/build/x86_64/polaris/elba/out/libsai_lib/libsai.so to SAI/lib/libsaipds.so
+4) make pds-libsai-test
+5) start naples sim - scripts/cloud/bitw-smart-switch/start-dsc-sim.sh
+6) make run-pds-libsai-test
+
+To retest after any change to libsai.so repeat only steps 3, 4, 6

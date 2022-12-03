@@ -122,7 +122,7 @@ DOCKER_RUN_SAITHRIFT_BLDR =\
 
 sai: sai-clean sai-headers sai-meta libsai
 
-sai-headers: p4 | SAI/SAI 
+sai-headers: p4 | SAI/SAI
 	@echo "Generate SAI library headers and implementation..."
 	mkdir -p SAI/lib && chmod -R o+w SAI && \
 	$(DOCKER_RUN) \
@@ -131,7 +131,7 @@ sai-headers: p4 | SAI/SAI
 		-w /SAI $(DOCKER_SAITHRIFT_BLDR_IMG) \
 	    ./generate_dash_api.sh
 
-sai-meta: 
+sai-meta:
 	@echo "Generate SAI metadata..."
 	# hack - remove scripts which cause Git ownership failures in CI pipelines
 	# We don't need them, they're to check that SAI headers didn't experience enum changes etc.
@@ -146,7 +146,7 @@ sai-meta:
 	    make
 
 # TODO - add SAI header dependencies
-libsai: 
+libsai:
 	@echo "build libsai.so..."
 	$(DOCKER_RUN) \
 		$(DOCKER_FLAGS) \
@@ -155,7 +155,7 @@ libsai:
 		$(DOCKER_BMV2_BLDR_IMG) \
 	    make
 
-libsai-clean: 
+libsai-clean:
 	-rm -rf SAI/lib/*
 
 .PHONY:sai-clean
@@ -266,6 +266,20 @@ run-libsai-test:
 	done; \
 	docker exec -w /tests/libsai/vnet_out simple_switch-$(USER) ./vnet_out
 
+.PHONY:pds-libsai-test
+pds-libsai-test:SAI/SAI SAI/lib/libsaipds.so
+	$(DOCKER_RUN) \
+	    --name dash-build-test-$(USER) \
+		-w /tests/libsai/pds_test  $(DOCKER_BMV2_BLDR_IMG) \
+	    make
+
+.PHONY:run-pds-libsai-test
+pds-run-libsai-test:
+	# Ensure P4Runtime server is listening
+	$(DOCKER_RUN) \
+	    --name dash-build-test-$(USER) \
+		-w /tests/libsai/pds_test  $(DOCKER_BMV2_BLDR_IMG) ./pds_test
+
 # Make sure we have executable
 tests/init_switch/init_switch:libsai-test
 
@@ -354,7 +368,7 @@ docker-publish-saithrift-client-bldr:
 	docker push $(DOCKER_SAITHRIFT_CLIENT_BLDR_IMG)
 
 ###############################
-		
+
 # Client image, rebuild any time SAI interface changes
 # TODO - add sai header (inc/ and experimental) dependencies
 docker-saithrift-client:
