@@ -65,6 +65,8 @@ int main(int argc, char **argv)
     sai_object_id_t out_acl_group_id = SAI_NULL_OBJECT_ID;
     sai_object_id_t eni_id, eni_id_2;
     sai_object_id_t vnet_id;
+    std::vector<uint32_t> bulk_attrs_count;
+    std::vector<sai_status_t> bulk_status;
 
     sai_direction_lookup_entry_t dle = {};
     dle.switch_id = switch_id;
@@ -264,15 +266,26 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    attrs.clear();
+    // mapping bulk create
+    auto ca_pa_bulk_count = 10;
+    std::vector<sai_outbound_ca_to_pa_entry_t> ca_pa_bulk_keys;
+    std::vector<std::vector<sai_attribute_t>> ca_pa_bulk_attrs_list;
+    std::vector<const sai_attribute_t*> ca_pa_bulk_attrs;
+    bulk_status.resize(ca_pa_bulk_count);
+    sai_ip_addr_t ca_addr4 = {.ip4 = 0x0a080808};
+    sai_ip_addr_t pa_addr4 = {.ip4 = 0xad030110};
 
+    for (auto i = 0; i < ca_pa_bulk_count; ++i) {
     sai_outbound_ca_to_pa_entry_t ca_pa;
     ca_pa.switch_id = switch_id;
     ca_pa.dst_vnet_id = vnet_id;
-    sai_ip_addr_t ca_addr4 = {.ip4 = 0x0a080808};
+    ca_addr4.ip4 += i;
     sai_ip_address_t ca_addr = {.addr_family = SAI_IP_ADDR_FAMILY_IPV4,
                               .addr = ca_addr4};
     ca_pa.dip = ca_addr;
+    ca_pa_bulk_keys.push_back(ca_pa);
+
+    attrs.clear();
 
     attr.id = SAI_OUTBOUND_CA_TO_PA_ENTRY_ATTR_OVERLAY_DMAC;
     attr.value.mac[0] = 0xdd;
@@ -280,11 +293,14 @@ int main(int argc, char **argv)
     attr.value.mac[2] = 0xee;
     attr.value.mac[3] = 0xee;
     attr.value.mac[4] = 0xee;
-    attr.value.mac[5] = 0xee;
+    attr.value.mac[5] = 0x1;
+    attr.value.mac[5] += i;
     attrs.push_back(attr);
 
     attr.id = SAI_OUTBOUND_CA_TO_PA_ENTRY_ATTR_UNDERLAY_DIP;
-    sai_ip_addr_t pa_addr4 = {.ip4 = 0xad030110};
+    if (i % 2 == 0) {
+        pa_addr4.ip4 += i;
+    }
     sai_ip_address_t pa_addr = {.addr_family = SAI_IP_ADDR_FAMILY_IPV4,
                               .addr = pa_addr4};
     attr.value.ipaddr = pa_addr;
@@ -294,13 +310,25 @@ int main(int argc, char **argv)
     attr.value.booldata = true;
     attrs.push_back(attr);
 
-    status = sai_dash_outbound_ca_to_pa_api_impl.create_outbound_ca_to_pa_entry(&ca_pa, attrs.size(), attrs.data());
+    ca_pa_bulk_attrs_list.push_back(attrs);
+    ca_pa_bulk_attrs.push_back(ca_pa_bulk_attrs_list.back().data());
+    bulk_attrs_count.push_back(attrs.size());
+    }
+
+    status = sai_dash_outbound_ca_to_pa_api_impl.create_outbound_ca_to_pa_entries(ca_pa_bulk_count,
+                                                                             ca_pa_bulk_keys.data(),
+                                                                             bulk_attrs_count.data(),
+                                                                             ca_pa_bulk_attrs.data(),
+                                                                             SAI_BULK_OP_ERROR_MODE_STOP_ON_ERROR,
+                                                                             bulk_status.data());
     if (status != SAI_STATUS_SUCCESS)
     {
         std::cout << "Failed to create outbound CA to PA entry" << std::endl;
         return 1;
     }
     attrs.clear();
+    bulk_status.clear();
+    bulk_attrs_count.clear();
 
     std::cout << "Press key + enter to update ENI";
     char c;
@@ -341,7 +369,10 @@ int main(int argc, char **argv)
     std::cin >> c ;
     // Delete everything in reverse order
 
-    status = sai_dash_outbound_ca_to_pa_api_impl.remove_outbound_ca_to_pa_entry(&ca_pa);
+    status = sai_dash_outbound_ca_to_pa_api_impl.remove_outbound_ca_to_pa_entries(ca_pa_bulk_count,
+                                                                                  ca_pa_bulk_keys.data(),
+                                                                                  SAI_BULK_OP_ERROR_MODE_STOP_ON_ERROR,
+                                                                                  bulk_status.data());
     if (status != SAI_STATUS_SUCCESS)
     {
         std::cout << "Failed to remove ENI Lookup From VM" << std::endl;
