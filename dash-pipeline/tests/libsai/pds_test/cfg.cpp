@@ -63,6 +63,8 @@ int main(int argc, char **argv)
     std::vector<sai_attribute_t> attrs;
     sai_object_id_t in_acl_group_id = SAI_NULL_OBJECT_ID;
     sai_object_id_t out_acl_group_id = SAI_NULL_OBJECT_ID;
+    sai_object_id_t in_acl_rule_id = SAI_NULL_OBJECT_ID;
+    sai_object_id_t out_acl_rule_id = SAI_NULL_OBJECT_ID;
     sai_object_id_t eni_id, eni_id_2;
     sai_object_id_t vnet_id;
     std::vector<uint32_t> bulk_attrs_count;
@@ -71,7 +73,7 @@ int main(int argc, char **argv)
     sai_direction_lookup_entry_t dle = {};
     dle.switch_id = switch_id;
     dle.vni = 60;
-
+    
     attr.id = SAI_DIRECTION_LOOKUP_ENTRY_ATTR_ACTION;
     attr.value.u32 = SAI_DIRECTION_LOOKUP_ENTRY_ACTION_SET_OUTBOUND_DIRECTION;
     attrs.push_back(attr);
@@ -82,9 +84,10 @@ int main(int argc, char **argv)
         std::cout << "Failed to create Direction Lookup Entry" << std::endl;
         return 1;
     }
-
+    
+    // DASH ACL GROUP INBOUND & OUTBOUND
+    // default allow all policy
     attrs.clear();
-
     attr.id = SAI_DASH_ACL_GROUP_ATTR_IP_ADDR_FAMILY;
     attr.value.s32 = SAI_IP_ADDR_FAMILY_IPV4;
     attrs.push_back(attr);
@@ -100,8 +103,41 @@ int main(int argc, char **argv)
         std::cout << "Failed to create outbound Dash ACL group" << std::endl;
     }
 
+    // DASH ACL RULE INBOUND & OUTBOUND
+#if 0
     attrs.clear();
+    attr.id = SAI_DASH_ACL_RULE_ATTR_DASH_ACL_GROUP_ID;
+    attr.value.s32 = in_acl_group_id;
+    attrs.push_back(attr);
 
+    attr.id = SAI_DASH_ACL_RULE_ATTR_ACTION;
+    attr.value.s32 = SAI_DASH_ACL_RULE_ACTION_PERMIT;
+    attrs.push_back(attr);
+
+    status = sai_dash_acl_api_impl.create_dash_acl_rule(&in_acl_rule_id, switch_id, attrs.size(), attrs.data());
+    if (status != SAI_STATUS_SUCCESS)
+    {
+        std::cout << "Failed to create inbound Dash ACL RULE" << std::endl;
+    }
+
+    attrs.clear();
+    attr.id = SAI_DASH_ACL_RULE_ATTR_DASH_ACL_GROUP_ID;
+    attr.value.s32 = out_acl_group_id;
+    attrs.push_back(attr);
+
+    attr.id = SAI_DASH_ACL_RULE_ATTR_ACTION;
+    attr.value.s32 = SAI_DASH_ACL_RULE_ACTION_PERMIT;
+    attrs.push_back(attr);
+    
+    status = sai_dash_acl_api_impl.create_dash_acl_rule(&out_acl_rule_id, switch_id, attrs.size(), attrs.data());
+    if (status != SAI_STATUS_SUCCESS)
+    {
+        std::cout << "Failed to create outbound Dash ACL RULE" << std::endl;
+    }
+#endif
+
+    // DASH VNET
+    attrs.clear();
     attr.id = SAI_VNET_ATTR_VNI;
     attr.value.u32 = 9;
     attrs.push_back(attr);
@@ -113,8 +149,8 @@ int main(int argc, char **argv)
         return 1;
     }
 
+    // DASH ENI
     attrs.clear();
-
     attr.id = SAI_ENI_ATTR_CPS;
     attr.value.u32 = 10000;
     attrs.push_back(attr);
@@ -181,8 +217,8 @@ int main(int argc, char **argv)
         return 1;
     }
 
+    // DASH ENI
     attrs.clear();
-
     attr.id = SAI_ENI_ATTR_CPS;
     attr.value.u32 = 10000;
     attrs.push_back(attr);
@@ -224,8 +260,8 @@ int main(int argc, char **argv)
         return 1;
     }
 
+    // DASH ENI_ETHER_ADDR_MAP
     attrs.clear();
-
     sai_eni_ether_address_map_entry_t eam;
     eam.switch_id = switch_id;
     eam.address[0] = 0xaa;
@@ -285,8 +321,8 @@ int main(int argc, char **argv)
     ca_pa.dip = ca_addr;
     ca_pa_bulk_keys.push_back(ca_pa);
 
+    // DASH OUTBOUND_CA_TO_PA_MAPPING 
     attrs.clear();
-
     attr.id = SAI_OUTBOUND_CA_TO_PA_ENTRY_ATTR_OVERLAY_DMAC;
     attr.value.mac[0] = 0xdd;
     attr.value.mac[1] = 0xee;
@@ -326,6 +362,8 @@ int main(int argc, char **argv)
         std::cout << "Failed to create outbound CA to PA entry" << std::endl;
         return 1;
     }
+
+    // DASH ENI UPDATE
     attrs.clear();
     bulk_status.clear();
     bulk_attrs_count.clear();
@@ -346,8 +384,8 @@ int main(int argc, char **argv)
         return 1;
     }
 
+    // DASH ENI UPDATE
     attrs.clear();
-
     std::cout << "Press key + enter to update ENI";
     std::cin >> c ;
 
@@ -363,12 +401,12 @@ int main(int argc, char **argv)
         return 1;
     }
 
+    // DASH DELETE ALL CONFIG 
     attrs.clear();
-
     std::cout << "Press key + enter to delete all";
     std::cin >> c ;
-    // Delete everything in reverse order
 
+    // Delete everything in reverse order
     status = sai_dash_outbound_ca_to_pa_api_impl.remove_outbound_ca_to_pa_entries(ca_pa_bulk_count,
                                                                                   ca_pa_bulk_keys.data(),
                                                                                   SAI_BULK_OP_ERROR_MODE_STOP_ON_ERROR,
@@ -434,7 +472,6 @@ int main(int argc, char **argv)
         std::cout << "Failed to remove Direction Lookup Entry" << std::endl;
         return 1;
     }
-
     std::cout << "Done." << std::endl;
 
     return 0;
